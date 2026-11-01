@@ -2,8 +2,9 @@ import React from 'react';
 import {
   GraduationCap, Truck, PlusCircle, UploadCloud,
   Receipt, ArrowUpRight, Clock, AlertCircle, CheckCircle,
-  FileSpreadsheet, ShieldCheck, Inbox
+  FileSpreadsheet, ShieldCheck
 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
 import { useSchool } from '../../context/SchoolContext';
 import { formatCurrency, formatDisplayDate } from '../../utils/financeRules';
 
@@ -26,13 +27,22 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
   const studentTotalBilled = studentFees.reduce((sum, f) => sum + f.totalAmount, 0);
   const studentTotalCollected = studentFees.reduce((sum, f) => sum + f.paidAmount, 0);
   const studentTotalOutstanding = studentFees.reduce((sum, f) => sum + f.balance, 0);
-  const studentPendingCount = studentFees.filter(f => f.paymentStatus !== 'Paid').length;
 
   // Category 2 Calculations directly from real data
   const vendorTotalBilled = vendorInvoices.reduce((sum, i) => sum + i.totalAmount, 0);
   const vendorTotalPaid = vendorInvoices.reduce((sum, i) => sum + i.paidAmount, 0);
   const vendorTotalPayable = vendorInvoices.reduce((sum, i) => sum + i.balance, 0);
-  const vendorPendingCount = vendorInvoices.filter(i => i.paymentStatus !== 'Paid').length;
+
+  const studentChartData = [
+    { name: 'Billed', amount: studentTotalBilled, color: '#64748B' },
+    { name: 'Collected', amount: studentTotalCollected, color: '#059669' },
+    { name: 'Remaining', amount: studentTotalOutstanding, color: '#D81A28' },
+  ];
+  const vendorChartData = [
+    { name: 'Billed', amount: vendorTotalBilled, color: '#64748B' },
+    { name: 'Paid', amount: vendorTotalPaid, color: '#2563EB' },
+    { name: 'Payable Due', amount: vendorTotalPayable, color: '#D81A28' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -135,66 +145,30 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
               </div>
             </div>
 
-            {/* Recent student fee items or Empty State */}
-            <div className="mt-4">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Recent Student Records ({studentFees.length} total)
-              </h4>
-
-              {studentFees.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-slate-400">
-                  <Inbox className="h-7 w-7 mx-auto text-slate-300 mb-2" />
-                  <p className="text-xs font-semibold text-slate-700">No student financial records yet</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Click "+ Student Fee" to enter the first fee challan or import multiple records via CSV.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {studentFees.slice(0, 4).map((f) => (
-                    <div
-                      key={f.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5 hover:bg-slate-50 text-xs"
-                    >
-                      <div>
-                        <p className="font-bold text-slate-900">{f.studentName}</p>
-                        <p className="text-[11px] text-slate-500">
-                          {f.invoiceNumber} • {f.gradeClass} • {f.category}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-slate-900">
-                          {formatCurrency(f.totalAmount, settings.currencyCode)}
-                        </p>
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                            f.paymentStatus === 'Paid'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : f.paymentStatus === 'Partially Paid'
-                              ? 'bg-blue-100 text-blue-800'
-                              : f.paymentStatus === 'Overdue'
-                              ? 'bg-red-100 text-red-800 font-bold'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {f.paymentStatus}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="mt-5 h-44" aria-label="Student billed, collected, and remaining totals">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={studentChartData} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    width={78}
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                  />
+                  <Tooltip
+                    formatter={(value: unknown) => [formatCurrency(Number(value), settings.currencyCode), '']}
+                    cursor={{ fill: '#F8FAFC' }}
+                  />
+                  <Bar dataKey="amount" name="Amount" radius={[0, 4, 4, 0]} barSize={18}>
+                    {studentChartData.map((item) => <Cell key={item.name} fill={item.color} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-500">{studentPendingCount} students with dues pending</span>
-            <button
-              onClick={onOpenAddStudent}
-              className="text-xs font-semibold text-red-700 hover:underline"
-            >
-              + Add Student Entry
-            </button>
           </div>
         </div>
 
@@ -248,66 +222,30 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
               </div>
             </div>
 
-            {/* Recent vendor bills or Empty State */}
-            <div className="mt-4">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Recent Supplier Invoices ({vendorInvoices.length} total)
-              </h4>
-
-              {vendorInvoices.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-slate-400">
-                  <Inbox className="h-7 w-7 mx-auto text-slate-300 mb-2" />
-                  <p className="text-xs font-semibold text-slate-700">No vendor bills found</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Click "+ Vendor Bill" to log incoming supplier liabilities and contract expenses.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {vendorInvoices.slice(0, 4).map((i) => (
-                    <div
-                      key={i.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5 hover:bg-slate-50 text-xs"
-                    >
-                      <div>
-                        <p className="font-bold text-slate-900">{i.vendorName}</p>
-                        <p className="text-[11px] text-slate-500">
-                          {i.invoiceNumber} • {i.category}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-slate-900">
-                          {formatCurrency(i.totalAmount, settings.currencyCode)}
-                        </p>
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                            i.paymentStatus === 'Paid'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : i.paymentStatus === 'Partially Paid'
-                              ? 'bg-blue-100 text-blue-800'
-                              : i.paymentStatus === 'Overdue'
-                              ? 'bg-red-100 text-red-800 font-bold'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {i.paymentStatus}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="mt-5 h-44" aria-label="Vendor billed, paid, and payable totals">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={vendorChartData} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    width={78}
+                    tick={{ fontSize: 11, fill: '#64748B' }}
+                  />
+                  <Tooltip
+                    formatter={(value: unknown) => [formatCurrency(Number(value), settings.currencyCode), '']}
+                    cursor={{ fill: '#F8FAFC' }}
+                  />
+                  <Bar dataKey="amount" name="Amount" radius={[0, 4, 4, 0]} barSize={18}>
+                    {vendorChartData.map((item) => <Cell key={item.name} fill={item.color} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-500">{vendorPendingCount} supplier bills with balance due</span>
-            <button
-              onClick={onOpenAddVendor}
-              className="text-xs font-semibold text-red-700 hover:underline"
-            >
-              + Add Vendor Bill
-            </button>
           </div>
         </div>
       </div>

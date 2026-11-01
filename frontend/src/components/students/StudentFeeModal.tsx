@@ -7,12 +7,14 @@ interface StudentFeeModalProps {
   isOpen: boolean;
   onClose: () => void;
   recordToEdit?: StudentFeeRecord | null;
+  initialGradeClass?: string;
 }
 
 export const StudentFeeModal: React.FC<StudentFeeModalProps> = ({
   isOpen,
   onClose,
   recordToEdit,
+  initialGradeClass = 'Grade 10-A',
 }) => {
   const { addStudentFee, updateStudentFee, settings } = useSchool();
 
@@ -60,7 +62,7 @@ export const StudentFeeModal: React.FC<StudentFeeModalProps> = ({
       setFormData({
         studentId: '',
         studentName: '',
-        gradeClass: 'Grade 10-A',
+        gradeClass: initialGradeClass,
         category: 'Tuition Fee',
         totalAmount: '',
         paidAmount: '0',
@@ -75,7 +77,7 @@ export const StudentFeeModal: React.FC<StudentFeeModalProps> = ({
       });
     }
     setError(null);
-  }, [recordToEdit, isOpen]);
+  }, [recordToEdit, isOpen, initialGradeClass]);
 
   if (!isOpen) return null;
 

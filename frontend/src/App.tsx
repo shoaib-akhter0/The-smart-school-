@@ -44,6 +44,7 @@ const MainApplication: React.FC = () => {
   // Modals state
   const [studentModalOpen, setStudentModalOpen] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<StudentFeeRecord | null>(null);
+  const [studentGradeClass, setStudentGradeClass] = useState('Grade 10-A');
 
   const [studentInvoiceOpen, setStudentInvoiceOpen] = useState(false);
   const [studentInvoiceRecord, setStudentInvoiceRecord] = useState<StudentFeeRecord | null>(null);
@@ -123,6 +124,7 @@ const MainApplication: React.FC = () => {
                           onNavigateTab={setActiveTab}
                           onOpenAddStudent={() => {
                             setStudentToEdit(null);
+                            setStudentGradeClass('Grade 10-A');
                             setStudentModalOpen(true);
                           }}
                           onOpenAddVendor={() => {
@@ -156,8 +158,9 @@ const MainApplication: React.FC = () => {
                   {/* Category 1: Student Financial Records */}
                   {activeTab === 'students' && (
                     <StudentRecordsModule
-                      onOpenAddModal={() => {
+                      onOpenAddModal={(gradeClass) => {
                         setStudentToEdit(null);
+                        setStudentGradeClass(gradeClass ?? 'Grade 10-A');
                         setStudentModalOpen(true);
                       }}
                       onOpenEditModal={(rec) => {
@@ -247,6 +250,7 @@ const MainApplication: React.FC = () => {
         isOpen={studentModalOpen}
         onClose={() => setStudentModalOpen(false)}
         recordToEdit={studentToEdit}
+        initialGradeClass={studentGradeClass}
       />
 
       <StudentInvoiceModal

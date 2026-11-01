@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   GraduationCap, Search, Filter, Plus, FileDown,
-  Eye, Receipt, Edit3, Flag, Trash2, ArrowUpDown,
+  Eye, Receipt, Edit3, Flag, Trash2, ArrowUpDown, ArrowRight,
   AlertCircle, CheckCircle, ShieldAlert, FileText, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -9,8 +9,28 @@ import { useSchool } from '../../context/SchoolContext';
 import { StudentFeeRecord, PaymentStatus } from '../../types';
 import { formatCurrency, formatDisplayDate } from '../../utils/financeRules';
 
+const SCHOOL_CLASSES = [
+  'Class PG',
+  'Class Nur',
+  'Class KG',
+  ...Array.from({ length: 10 }, (_, index) => `Class ${index + 1}`),
+];
+
+const normalizeClassName = (gradeClass: string): string | null => {
+  const normalized = gradeClass.trim().toLowerCase();
+  if (/^(?:class\s*)?(pg|pre[- ]?primary)$/.test(normalized)) return 'Class PG';
+  if (/^(?:class\s*)?(nur|nursery)$/.test(normalized)) return 'Class Nur';
+  if (/^(?:class\s*)?(kg|k\.g\.|kindergarten)$/.test(normalized)) return 'Class KG';
+
+  const match = normalized.match(/^(?:class|grade)?\s*(\d+)(?:st|nd|rd|th)?(?:\s*[- ]\s*[a-z])?$/);
+  if (!match) return null;
+
+  const classNumber = Number(match[1]);
+  return classNumber >= 1 && classNumber <= 10 ? `Class ${classNumber}` : null;
+};
+
 interface StudentRecordsModuleProps {
-  onOpenAddModal: () => void;
+  onOpenAddModal: (gradeClass?: string) => void;
   onOpenEditModal: (record: StudentFeeRecord) => void;
   onOpenInvoiceModal: (record: StudentFeeRecord) => void;
   onOpenPaymentModal: (record: StudentFeeRecord) => void;
@@ -35,7 +55,7 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedGrade, setSelectedGrade] = useState('all');
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'amount' | 'balance' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +69,7 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
         if (selectedYear !== 'all' && r.year !== Number(selectedYear)) return false;
         if (selectedStatus !== 'all' && r.paymentStatus !== selectedStatus) return false;
         if (selectedCategory !== 'all' && r.category !== selectedCategory) return false;
-        if (selectedGrade !== 'all' && r.gradeClass !== selectedGrade) return false;
+        if (selectedGrade !== null && normalizeClassName(r.gradeClass) !== selectedGrade) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           return (
@@ -111,6 +131,19 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
     alert('CRITICAL SECURITY RULE: The GM cannot edit or overwrite original financial records uploaded by the Accountant. You can flag this record for review or request a correction.');
   };
 
+  const handleDeleteRecord = async (record: StudentFeeRecord) => {
+    const confirmed = window.confirm(`Delete the fee record for ${record.studentName} (${record.invoiceNumber})? This cannot be undone.`);
+    if (!confirmed) return;
+
+    const result = await deleteStudentFee(record.id);
+    if (!result.success) {
+      window.alert(result.error || 'Failed to delete the student fee record.');
+      return;
+    }
+
+    setCurrentPage(1);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
@@ -118,24 +151,38 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="rounded-md bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-800">
-              Category One
+              {selectedGrade ?? 'Category One'}
             </span>
             <span className="text-xs text-slate-500 font-medium">
               Tuition, Admission, Exam &amp; Transport Charges
             </span>
           </div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900 mt-1">
-            Student Financial Records &amp; Fee Ledgers
+            {selectedGrade ? `${selectedGrade} Fee Ledger` : 'Student Financial Records & Fee Ledgers'}
           </h2>
           <p className="text-xs text-slate-500">
-            Automated balance tracking: <code className="font-mono text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded">Remaining Balance = Total Payable − Amount Paid</code>
+            {selectedGrade
+              ? `Fee records for ${selectedGrade}.`
+              : <>Automated balance tracking: <code className="font-mono text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded">Remaining Balance = Total Payable − Amount Paid</code></>}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {selectedGrade !== null && (
+            <button
+              onClick={() => {
+                setSelectedGrade(null);
+                setCurrentPage(1);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>All Classes</span>
+            </button>
+          )}
           {isAccountant && (
             <button
-              onClick={onOpenAddModal}
+              onClick={() => onOpenAddModal(selectedGrade ?? undefined)}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
             >
               <Plus className="h-4 w-4" />
@@ -143,16 +190,39 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
             </button>
           )}
 
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-          >
-            <FileDown className="h-4 w-4 text-slate-500" />
-            <span>Export CSV</span>
-          </button>
+          {selectedGrade !== null && (
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+            >
+              <FileDown className="h-4 w-4 text-slate-500" />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {selectedGrade === null ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {SCHOOL_CLASSES.map((className) => (
+            <button
+              key={className}
+              type="button"
+              onClick={() => {
+                setSelectedGrade(className);
+                setCurrentPage(1);
+              }}
+              className="rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-indigo-300 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <span className="flex items-center justify-between gap-3">
+                <span className="text-base font-bold text-slate-900">{className}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
       {/* Summary Metrics Bar for Filtered Selection */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -333,7 +403,7 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
                     {isAccountant && (
                       <div className="mt-4 flex items-center justify-center gap-2">
                         <button
-                          onClick={onOpenAddModal}
+                          onClick={() => onOpenAddModal(selectedGrade ?? undefined)}
                           className="rounded-lg bg-[#D81A28] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#B91220] transition"
                         >
                           + Add First Student Fee
@@ -450,6 +520,16 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
                           </button>
                         )}
 
+                        {isAccountant && (
+                          <button
+                            onClick={() => handleDeleteRecord(r)}
+                            title="Delete Record"
+                            className="rounded p-1 text-rose-600 hover:bg-rose-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+
                         {/* If GM tries to edit: Show restriction */}
                         {isGM && (
                           <button
@@ -514,6 +594,8 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
