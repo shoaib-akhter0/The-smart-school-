@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600;1,700&amp;family=Montserrat:wght@600;700&amp;display=swap');
+      .brand-red { fill: #D81A28; }
+      .brand-white { fill: #FFFFFF; }
+      .script-font {
+        font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+        font-style: italic;
+        font-weight: 700;
+        fill: #D81A28;
+      }
+      .motto-font {
+        font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        fill: #D81A28;
+      }
+    </style>
+  </defs>
+
+  <!-- Left: Red framed square with reverse @ symbol -->
+  <!-- Outer red square outline -->
+  <rect x="25" y="135" width="180" height="180" rx="4" fill="none" stroke="#D81A28" stroke-width="7" />
+  <!-- Inner inset red thin border -->
+  <rect x="34" y="144" width="162" height="162" rx="2" fill="none" stroke="#D81A28" stroke-width="2.5" />
+  
+  <!-- Left half red fill -->
+  <path d="M 37 147 L 195 147 L 195 303 L 37 303 Z" fill="#D81A28" />
+
+  <!-- The stylized @ emblem -->
+  <!-- Outer arc: extends from inside red square into white side -->
+  <!-- Arc on the right side (red on white) -->
+  <path d="M 195 156 A 66 66 0 0 1 254 263 A 68 68 0 0 1 247 274" fill="none" stroke="#D81A28" stroke-width="16" stroke-linecap="round" />
+  
+  <!-- Outer loop entering the red square (white on red) -->
+  <path d="M 195 156 A 66 66 0 0 0 134 225 A 66 66 0 0 0 195 291" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" />
+  
+  <!-- Inner middle loop of @ -->
+  <circle cx="195" cy="225" r="42" fill="none" stroke="#FFFFFF" stroke-width="13" />
+  
+  <!-- Inner letter "a" inside @ -->
+  <text x="178" y="244" font-family="'Montserrat', sans-serif" font-weight="900" font-size="46" fill="#FFFFFF">a</text>
+  <!-- Downward tail of the @ inner letter -->
+  <path d="M 213 205 L 213 252 C 213 256 218 256 222 254" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" />
+
+  <!-- Right: Script Typography "The Smart School" -->
+  <text x="280" y="180" class="script-font" font-size="52">The</text>
+  <text x="280" y="242" class="script-font" font-size="55">Smart</text>
+  <text x="280" y="304" class="script-font" font-size="55">School</text>
+
+  <!-- Horizontal divider line -->
+  <line x1="25" y1="328" x2="475" y2="328" stroke="#D81A28" stroke-width="5" />
+
+  <!-- Tagline: "Tomorrow is our Destiny" -->
+  <text x="25" y="362" class="motto-font" font-size="28">Tomorrow is our Destiny</text>
+</svg>

@@ -1,0 +1,17 @@
+# Frontend
+node_modules/
+dist/
+build/
+coverage/
+
+# Backend
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+staticfiles/
+
+# Environment & OS
+.env*
+.DS_Store
+*.log
