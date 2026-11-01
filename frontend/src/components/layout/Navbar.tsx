@@ -103,27 +103,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
 
-        {/* Currency badge */}
-        <div className="hidden items-center gap-1.5 rounded-full border border-red-200 bg-red-50/50 px-2.5 py-1 text-xs font-semibold text-red-800 xl:flex">
-          <Wallet className="h-3.5 w-3.5 text-[#C62828]" />
-          <span>Currency: {settings.currencyCode}</span>
-        </div>
+        {!currentUser || currentUser.role !== 'ACCOUNTANT' ? (
+          <>
+            {/* Currency badge */}
+            <div className="hidden items-center gap-1.5 rounded-full border border-red-200 bg-red-50/50 px-2.5 py-1 text-xs font-semibold text-red-800 xl:flex">
+              <Wallet className="h-3.5 w-3.5 text-[#C62828]" />
+              <span>Currency: {settings.currencyCode}</span>
+            </div>
 
-
-
-        {/* Notifications Bell */}
-        <button
-          onClick={onOpenNotifications}
-          className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#C62828]"
-          aria-label="View notifications"
-        >
-          <Bell className="h-5 w-5" />
-          {unreadNotifs > 0 && (
-            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#C62828] text-[10px] font-bold text-white shadow-xs">
-              {unreadNotifs}
-            </span>
-          )}
-        </button>
+            {/* Notifications Bell */}
+            <button
+              onClick={onOpenNotifications}
+              className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#C62828]"
+              aria-label="View notifications"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadNotifs > 0 && (
+                <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#C62828] text-[10px] font-bold text-white shadow-xs">
+                  {unreadNotifs}
+                </span>
+              )}
+            </button>
+          </>
+        ) : null}
 
         {/* User profile avatar badge & dropdown */}
         <div className="relative">

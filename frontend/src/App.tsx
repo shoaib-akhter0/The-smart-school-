@@ -111,7 +111,9 @@ const MainApplication: React.FC = () => {
           }}
         />
 
-        <main className="flex-1 overflow-y-auto bg-[#FAF9F6]">
+        <main className={`flex-1 overflow-y-auto ${
+          isDarkMode ? 'bg-[#0b1120] text-slate-100' : 'bg-[#FAF9F6] text-slate-800'
+        }`}>
           <div className="flex min-h-full flex-col justify-between">
             <div className="p-4 sm:p-6 lg:p-8">
                 <div className="mx-auto max-w-7xl space-y-6">
@@ -223,7 +225,7 @@ const MainApplication: React.FC = () => {
                   )}
 
                   {/* Payments List */}
-                  {activeTab === 'payments' && <PaymentsModule />}
+                  {activeTab === 'payments' && !isAccountant && <PaymentsModule />}
 
                   {/* Reports & Exports */}
                   {activeTab === 'reports' && <ReportsModule />}
@@ -232,7 +234,7 @@ const MainApplication: React.FC = () => {
                   {activeTab === 'import' && <BulkImportModule />}
 
                   {/* Audit Logs */}
-                  {activeTab === 'audit' && <AuditLogsModule />}
+                  {activeTab === 'audit' && !isAccountant && <AuditLogsModule />}
 
                   {/* User Management (GM Only) */}
                   {activeTab === 'users' && isGM && <UserManagementModule />}

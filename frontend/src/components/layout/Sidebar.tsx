@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSchool } from '../../context/SchoolContext';
+import { useTheme } from '../../context/ThemeContext';
 import { SmartSchoolLogo } from '../common/SmartSchoolLogo';
 
 interface SidebarProps {
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { currentUser, isGM, isAccountant, isHOD, isVendor } = useAuth();
   const { studentFees, vendorInvoices } = useSchool();
+  const { isDarkMode } = useTheme();
 
   const overdueStudentCount = studentFees.filter((f) => f.paymentStatus === 'Overdue').length;
   const overdueVendorCount = vendorInvoices.filter((i) => i.paymentStatus === 'Overdue').length;
@@ -54,7 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'payments',
       label: 'Payment History',
       icon: Receipt,
-      roles: ['GM', 'ACCOUNTANT', 'HOD', 'VENDOR'],
+      roles: ['GM', 'HOD', 'VENDOR'],
     },
     {
       id: 'reports',
@@ -73,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'audit',
       label: 'Audit Trail',
       icon: History,
-      roles: ['GM', 'ACCOUNTANT', 'HOD'],
+      roles: ['GM', 'HOD'],
     },
     {
       id: 'users',
@@ -105,18 +107,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen max-h-screen w-64 flex-col border-r border-slate-800 bg-[#140608] text-slate-100 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shrink-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen max-h-screen w-64 flex-col border-r transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shrink-0 ${
+          isDarkMode
+            ? 'border-slate-800 bg-[#140608] text-slate-100'
+            : 'border-slate-200 bg-white text-slate-700'
+        } ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Header / Official Logo */}
-        <div className="flex h-22 w-64 items-center justify-between border-b border-red-950/60 bg-[#1C090C] px-4 shrink-0">
+        <div className={`flex h-22 w-64 items-center justify-between border-b px-4 shrink-0 ${
+          isDarkMode ? 'border-red-950/60 bg-[#1C090C]' : 'border-slate-200 bg-white'
+        }`}>
           <div className="flex items-center gap-2">
-            <SmartSchoolLogo height={64} variant="full" inverted={true} />
+            <SmartSchoolLogo height={64} variant="full" inverted={isDarkMode} />
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-950 hover:text-white transition lg:hidden"
+            className={`rounded-lg p-1.5 transition lg:hidden ${
+              isDarkMode
+                ? 'text-slate-400 hover:bg-red-950 hover:text-white'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+            }`}
             aria-label="Close sidebar"
             title="Close sidebar"
           >
@@ -125,19 +137,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Current user role card */}
-        <div className="px-4 py-3 border-b border-red-950/40 bg-[#0E0304]">
+        <div className={`px-4 py-3 border-b ${
+          isDarkMode
+            ? 'border-red-950/40 bg-[#0E0304]'
+            : 'border-slate-200 bg-slate-50'
+        }`}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-red-300">
+            <span className={`text-[10px] uppercase tracking-wider font-bold ${
+              isDarkMode ? 'text-red-300' : 'text-red-700'
+            }`}>
               The Smart School
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
+            <span className={`flex items-center gap-1 text-[10px] font-semibold ${
+              isDarkMode ? 'text-emerald-400' : 'text-emerald-700'
+            }`}>
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Verified
             </span>
           </div>
           <div className="mt-1 flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-red-500 shrink-0" />
-            <span className="text-xs font-semibold text-white truncate">
+            <span className={`text-xs font-semibold truncate ${
+              isDarkMode ? 'text-white' : 'text-slate-900'
+            }`}>
               {currentUser.role === 'GM'
                 ? 'GM / Super Admin'
                 : currentUser.role === 'ACCOUNTANT'
@@ -164,14 +186,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`group flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium transition ${
                   isActive
                     ? 'bg-[#C62828] text-white shadow-xs font-semibold'
-                    : 'text-slate-300 hover:bg-red-950/40 hover:text-white'
+                    : isDarkMode
+                    ? 'text-slate-300 hover:bg-red-950/40 hover:text-white'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
                 }`}
                 aria-current={isActive ? 'page' : undefined}
               >
                 <div className="flex items-center gap-3">
                   <Icon
                     className={`h-4 w-4 shrink-0 transition ${
-                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-red-400'
+                      isActive
+                        ? 'text-white'
+                        : isDarkMode
+                        ? 'text-slate-400 group-hover:text-red-400'
+                        : 'text-slate-500 group-hover:text-red-600'
                     }`}
                   />
                   <span>{item.label}</span>
@@ -186,13 +214,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                   {item.tag && (
-                    <span className="rounded bg-red-950/80 px-1.5 py-0.5 text-[9px] text-red-200">
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] ${
+                      isDarkMode
+                        ? 'bg-red-950/80 text-red-200'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
                       {item.tag}
                     </span>
                   )}
                   <ChevronRight
                     className={`h-3 w-3 opacity-0 transition group-hover:opacity-100 ${
-                      isActive ? 'opacity-100 text-white' : 'text-slate-500'
+                      isActive
+                        ? 'opacity-100 text-white'
+                        : isDarkMode
+                        ? 'text-slate-500'
+                        : 'text-slate-400'
                     }`}
                   />
                 </div>
@@ -202,7 +238,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Sidebar Footer - Fixed inside 100vh height */}
-        <div className="shrink-0 mt-auto border-t border-red-950/60 p-3 bg-[#0C0203] text-[10px] text-slate-500 text-center font-medium">
+        <div className={`shrink-0 mt-auto border-t p-3 text-[10px] text-center font-medium ${
+          isDarkMode
+            ? 'border-red-950/60 bg-[#0C0203] text-slate-500'
+            : 'border-slate-200 bg-white text-slate-500'
+        }`}>
           The Smart School • Session 2025-2026
         </div>
       </aside>
