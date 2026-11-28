@@ -16,7 +16,6 @@ class UserRole(models.TextChoices):
     GM = 'GM', 'GM / Super Admin'
     ACCOUNTANT = 'ACCOUNTANT', 'Accountant'
     HOD = 'HOD', 'Head of Department'
-    VENDOR = 'VENDOR', 'Vendor'
 
 
 class PaymentStatus(models.TextChoices):
@@ -78,7 +77,6 @@ class UserProfile(models.Model):
     phone = models.CharField(max_length=50, blank=True)
     avatar = models.TextField(blank=True, help_text='Image URL or base64 data URL')
     needs_password_change = models.BooleanField(default=False)
-    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
     is_primary_admin = models.BooleanField(default=False, help_text='The primary Super Admin cannot be deleted.')
 
     def __str__(self):
@@ -221,6 +219,8 @@ class AuditLog(models.Model):
         ('PAYMENT_RECORDED', 'Payment recorded'),
         ('RECORD_FLAGGED', 'Record flagged / unflagged'),
         ('IMPORT_COMPLETED', 'Bulk import completed'),
+        ('FILE_UPLOADED', 'Excel file uploaded'),
+        ('FILE_DELETED', 'Excel file deleted'),
         ('SETTINGS_UPDATED', 'Settings updated'),
         ('USER_UPDATED', 'User updated'),
     ]
@@ -311,3 +311,30 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ExcelWorkbook(models.Model):
+    """An Excel/CSV file the Accountant uploaded, shown as a "folder" in the Excel Folders page.
+
+    `sheets` holds the parsed data: [{"name": str, "headers": [str], "rows": [[value, ...]]}].
+    The original file is kept too so it can be downloaded again unchanged.
+    """
+
+    name = models.CharField(max_length=200)
+    original_filename = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100, blank=True)
+    file_data = models.BinaryField()
+    file_size = models.PositiveIntegerField(default=0)
+    sheets = models.JSONField(default=list)
+    sheet_names = models.JSONField(default=list)
+    sheet_count = models.PositiveIntegerField(default=0)
+    row_count = models.PositiveIntegerField(default=0)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    uploaded_by_name = models.CharField(max_length=150)
+    uploaded_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-uploaded_at', '-id']
+
+    def __str__(self):
+        return self.name

@@ -29,7 +29,6 @@ def serialize_user(user):
         'email': user.email,
         'role': profile.role,
         'department': profile.department,
-        'vendorId': profile.vendor.vendor_id if profile.vendor_id else None,
         'phone': profile.phone,
         'isActive': user.is_active,
         'avatar': profile.avatar or None,

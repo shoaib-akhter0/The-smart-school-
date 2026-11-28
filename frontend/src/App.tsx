@@ -6,7 +6,6 @@ import { Sidebar } from './components/layout/Sidebar';
 import { GMDashboard } from './components/dashboard/GMDashboard';
 import { AccountantDashboard } from './components/dashboard/AccountantDashboard';
 import { HODDashboard } from './components/dashboard/HODDashboard';
-import { VendorDashboard } from './components/dashboard/VendorDashboard';
 import { StudentRecordsModule } from './components/students/StudentRecordsModule';
 import { StudentFeeModal } from './components/students/StudentFeeModal';
 import { StudentInvoiceModal } from './components/students/StudentInvoiceModal';
@@ -18,6 +17,7 @@ import { PaymentsModule } from './components/payments/PaymentsModule';
 import { HODRevisionModal } from './components/revisions/HODRevisionModal';
 import { FlagRecordModal } from './components/revisions/FlagRecordModal';
 import { BulkImportModule } from './components/import/BulkImportModule';
+import { ExcelFoldersModule } from './components/excel/ExcelFoldersModule';
 import { ReportsModule } from './components/reports/ReportsModule';
 import { AuditLogsModule } from './components/audit/AuditLogsModule';
 import { UserManagementModule } from './components/admin/UserManagementModule';
@@ -30,7 +30,7 @@ import { StudentFeeRecord, VendorInvoice } from './types';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 const MainApplication: React.FC = () => {
-  const { currentUser, isGM, isAccountant, isHOD, isVendor, isAuthenticated, mustChangePassword } = useAuth();
+  const { currentUser, isGM, isAccountant, isHOD, isAuthenticated, mustChangePassword } = useAuth();
   const { isLoading, error, refreshData } = useSchool();
   const { isDarkMode } = useTheme();
 
@@ -122,19 +122,7 @@ const MainApplication: React.FC = () => {
                     <>
                       {isGM && <GMDashboard onNavigateTab={setActiveTab} />}
                       {isAccountant && (
-                        <AccountantDashboard
-                          onNavigateTab={setActiveTab}
-                          onOpenAddStudent={() => {
-                            setStudentToEdit(null);
-                            setStudentGradeClass('Grade 10-A');
-                            setStudentModalOpen(true);
-                          }}
-                          onOpenAddVendor={() => {
-                            setVendorToEdit(null);
-                            setVendorAddModalOpen(true);
-                          }}
-                          onOpenRecordPayment={() => setActiveTab('students')}
-                        />
+                        <AccountantDashboard onNavigateTab={setActiveTab} />
                       )}
                       {isHOD && (
                         <HODDashboard
@@ -143,14 +131,6 @@ const MainApplication: React.FC = () => {
                             setRevisionRecord(rec);
                             setRevisionRecordType(type);
                             setRevisionModalOpen(true);
-                          }}
-                        />
-                      )}
-                      {isVendor && (
-                        <VendorDashboard
-                          onOpenInvoiceDetails={(inv) => {
-                            setVendorInvoiceRecord(inv);
-                            setVendorInvoiceOpen(true);
                           }}
                         />
                       )}
@@ -232,6 +212,9 @@ const MainApplication: React.FC = () => {
 
                   {/* Bulk CSV / Excel Import */}
                   {activeTab === 'import' && <BulkImportModule />}
+
+                  {/* Excel Folders (Accountant only) */}
+                  {activeTab === 'excel-folders' && isAccountant && <ExcelFoldersModule />}
 
                   {/* Audit Logs */}
                   {activeTab === 'audit' && !isAccountant && <AuditLogsModule />}

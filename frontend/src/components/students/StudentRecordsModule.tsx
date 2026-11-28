@@ -8,26 +8,33 @@ import { useAuth } from '../../context/AuthContext';
 import { useSchool } from '../../context/SchoolContext';
 import { StudentFeeRecord, PaymentStatus } from '../../types';
 import { formatCurrency, formatDisplayDate } from '../../utils/financeRules';
+import { SCHOOL_CLASSES, normalizeClassName } from '../../utils/schoolClasses';
 
-const SCHOOL_CLASSES = [
-  'Class PG',
-  'Class Nur',
-  'Class KG',
-  ...Array.from({ length: 10 }, (_, index) => `Class ${index + 1}`),
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const normalizeClassName = (gradeClass: string): string | null => {
-  const normalized = gradeClass.trim().toLowerCase();
-  if (/^(?:class\s*)?(pg|pre[- ]?primary)$/.test(normalized)) return 'Class PG';
-  if (/^(?:class\s*)?(nur|nursery)$/.test(normalized)) return 'Class Nur';
-  if (/^(?:class\s*)?(kg|k\.g\.|kindergarten)$/.test(normalized)) return 'Class KG';
+// Three-month periods; `months` are indexes into MONTHS.
+const QUARTERS = [
+  { id: 'q1', label: 'Jan – Mar', months: [0, 1, 2] },
+  { id: 'q2', label: 'Apr – Jun', months: [3, 4, 5] },
+  { id: 'q3', label: 'Jul – Sep', months: [6, 7, 8] },
+  { id: 'q4', label: 'Oct – Dec', months: [9, 10, 11] },
+];
 
-  const match = normalized.match(/^(?:class|grade)?\s*(\d+)(?:st|nd|rd|th)?(?:\s*[- ]\s*[a-z])?$/);
-  if (!match) return null;
+const monthIndex = (month: string) => MONTHS.findIndex((m) => m.toLowerCase() === month.trim().toLowerCase());
 
-  const classNumber = Number(match[1]);
-  return classNumber >= 1 && classNumber <= 10 ? `Class ${classNumber}` : null;
-};
+// Ranges for a student's total outstanding dues (sum of balances across their records).
+const DUES_RANGES = [
+  { id: 'upto5k', label: 'Up to 5k', min: 1, max: 5000 },
+  { id: '5k-10k', label: '5k – 10k', min: 5001, max: 10000 },
+  { id: '10k-15k', label: '10k – 15k', min: 10001, max: 15000 },
+  { id: '15k-20k', label: '15k – 20k', min: 15001, max: 20000 },
+  { id: 'above20k', label: 'Above 20k', min: 20001, max: Infinity },
+];
+
+const duesRangeOf = (amount: number) => DUES_RANGES.find((r) => amount >= r.min && amount <= r.max)?.id ?? null;
 
 interface StudentRecordsModuleProps {
   onOpenAddModal: (gradeClass?: string) => void;
@@ -56,15 +63,21 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [selectedQuarter, setSelectedQuarter] = useState('all');
+  const [selectedDuesRange, setSelectedDuesRange] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'amount' | 'balance' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  // Filtered & sorted records
-  const filteredRecords = useMemo(() => {
+  const quarter = QUARTERS.find((q) => q.id === selectedQuarter);
+  const monthOptions = quarter ? quarter.months.map((i) => MONTHS[i]) : MONTHS;
+
+  // Records matching every filter except the dues range.
+  const baseRecords = useMemo(() => {
     return studentFees
       .filter((r) => {
+        if (quarter && !quarter.months.includes(monthIndex(r.month))) return false;
         if (selectedMonth !== 'all' && r.month.toLowerCase() !== selectedMonth.toLowerCase()) return false;
         if (selectedYear !== 'all' && r.year !== Number(selectedYear)) return false;
         if (selectedStatus !== 'all' && r.paymentStatus !== selectedStatus) return false;
@@ -80,7 +93,30 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
           );
         }
         return true;
-      })
+      });
+  }, [studentFees, searchQuery, quarter, selectedMonth, selectedYear, selectedStatus, selectedCategory, selectedGrade]);
+
+  // Each student's total outstanding dues within the current filters (class, quarter, month, ...).
+  const duesByStudent = useMemo(() => {
+    const totals = new Map<string, number>();
+    baseRecords.forEach((r) => totals.set(r.studentId, (totals.get(r.studentId) ?? 0) + r.balance));
+    return totals;
+  }, [baseRecords]);
+
+  // How many students fall into each dues range, shown on the range buttons.
+  const duesRangeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    duesByStudent.forEach((amount) => {
+      const range = duesRangeOf(amount);
+      if (range) counts[range] = (counts[range] ?? 0) + 1;
+    });
+    return counts;
+  }, [duesByStudent]);
+
+  // Filtered & sorted records
+  const filteredRecords = useMemo(() => {
+    return baseRecords
+      .filter((r) => selectedDuesRange === 'all' || duesRangeOf(duesByStudent.get(r.studentId) ?? 0) === selectedDuesRange)
       .sort((a, b) => {
         let cmp = 0;
         if (sortBy === 'name') cmp = a.studentName.localeCompare(b.studentName);
@@ -89,7 +125,7 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
         else if (sortBy === 'date') cmp = new Date(a.billIssueDate).getTime() - new Date(b.billIssueDate).getTime();
         return sortOrder === 'asc' ? cmp : -cmp;
       });
-  }, [studentFees, searchQuery, selectedMonth, selectedYear, selectedStatus, selectedCategory, selectedGrade, sortBy, sortOrder]);
+  }, [baseRecords, duesByStudent, selectedDuesRange, sortBy, sortOrder]);
 
   const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -160,11 +196,9 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
           <h2 className="text-xl font-bold tracking-tight text-slate-900 mt-1">
             {selectedGrade ? `${selectedGrade} Fee Ledger` : 'Student Financial Records & Fee Ledgers'}
           </h2>
-          <p className="text-xs text-slate-500">
-            {selectedGrade
-              ? `Fee records for ${selectedGrade}.`
-              : <>Automated balance tracking: <code className="font-mono text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded">Remaining Balance = Total Payable − Amount Paid</code></>}
-          </p>
+          {selectedGrade && (
+            <p className="text-xs text-slate-500">Fee records for {selectedGrade}.</p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -255,7 +289,7 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
 
       {/* Search, Filters, and Sorting Controls */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {/* Search Input */}
           <div className="lg:col-span-2 relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -268,20 +302,41 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
             />
           </div>
 
+          {/* 3-Month (Quarter) Filter */}
+          <div>
+            <select
+              value={selectedQuarter}
+              onChange={(e) => {
+                const next = QUARTERS.find((q) => q.id === e.target.value);
+                setSelectedQuarter(e.target.value);
+                // Drop a month that is outside the new 3-month period.
+                if (next && selectedMonth !== 'all' && !next.months.includes(monthIndex(selectedMonth))) {
+                  setSelectedMonth('all');
+                }
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+              aria-label="Filter by three-month period"
+            >
+              <option value="all">All 3-Month Periods</option>
+              {QUARTERS.map((q) => (
+                <option key={q.id} value={q.id}>{q.label}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Month Filter */}
           <div>
             <select
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={(e) => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
               aria-label="Filter by billing month"
             >
-              <option value="all">All Months</option>
-              <option value="August">August</option>
-              <option value="September">September</option>
-              <option value="October">October</option>
-              <option value="November">November</option>
-              <option value="December">December</option>
+              <option value="all">{quarter ? `All of ${quarter.label}` : 'All Months'}</option>
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
             </select>
           </div>
 
@@ -312,6 +367,27 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
               <option value="Partially Paid">Partially Paid</option>
               <option value="Unpaid">Unpaid</option>
               <option value="Overdue">Overdue (Warning)</option>
+            </select>
+          </div>
+
+          {/* Student Dues Filter (each student's total unpaid amount in this class) */}
+          <div>
+            <select
+              value={selectedDuesRange}
+              onChange={(e) => { setSelectedDuesRange(e.target.value); setCurrentPage(1); }}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+              aria-label="Filter by student's total unpaid dues"
+              title={`Each student's total unpaid amount (${settings.currencyCode})`}
+            >
+              <option value="all">All Student Dues</option>
+              {DUES_RANGES.map((range) => {
+                const count = duesRangeCounts[range.id] ?? 0;
+                return (
+                  <option key={range.id} value={range.id}>
+                    Dues {range.label} ({count} {count === 1 ? 'student' : 'students'})
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -396,7 +472,7 @@ export const StudentRecordsModule: React.FC<StudentRecordsModuleProps> = ({
                     <GraduationCap className="mx-auto h-10 w-10 text-slate-300 mb-2" />
                     <p className="text-sm font-semibold text-slate-700">No student records available yet</p>
                     <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                      {searchQuery || selectedMonth !== 'all' || selectedYear !== 'all' || selectedStatus !== 'all'
+                      {searchQuery || selectedQuarter !== 'all' || selectedMonth !== 'all' || selectedYear !== 'all' || selectedStatus !== 'all' || selectedCategory !== 'all' || selectedDuesRange !== 'all'
                         ? 'No student financial records match your current filter selections. Try clearing your search or filters.'
                         : 'No student fee bills have been entered. The Senior Accountant can add a new student fee or use Bulk CSV Import to load institutional records.'}
                     </p>

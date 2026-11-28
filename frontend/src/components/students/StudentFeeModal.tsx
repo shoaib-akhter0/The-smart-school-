@@ -93,7 +93,7 @@ export const StudentFeeModal: React.FC<StudentFeeModalProps> = ({
       return;
     }
     if (!formData.studentId.trim()) {
-      setError('Student ID / Registration number is required');
+      setError('Kuick pay Reg No is required');
       return;
     }
     if (isNaN(total) || total <= 0) {
@@ -163,7 +163,7 @@ export const StudentFeeModal: React.FC<StudentFeeModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
-          {/* Row 1: Student Name & Registration ID */}
+          {/* Row 1: Student Name & Kuick pay Reg No */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -181,7 +181,7 @@ export const StudentFeeModal: React.FC<StudentFeeModalProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Student Registration ID *
+                Kuick pay Reg No *
               </label>
               <input
                 type="text"

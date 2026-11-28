@@ -152,7 +152,7 @@ export const UserManagementModule: React.FC = () => {
             User Accounts &amp; Credential Administration
           </h2>
           <p className="text-xs text-slate-500">
-            Provision Accountants, HOD Admins, and Vendors. Set default temporary passwords and manage system access.
+            Provision Accountants, HOD Admins, and GMs. Set default temporary passwords and manage system access.
           </p>
         </div>
 
@@ -340,7 +340,6 @@ export const UserManagementModule: React.FC = () => {
                   <option value="ACCOUNTANT">Accountant (Category 1 &amp; 2 Financial Entry)</option>
                   <option value="HOD">HOD (Department Oversight &amp; Revisions)</option>
                   <option value="GM">GM / Super Admin (Executive Supervision)</option>
-                  <option value="VENDOR">Vendor (External Portal Access)</option>
                 </select>
               </div>
 

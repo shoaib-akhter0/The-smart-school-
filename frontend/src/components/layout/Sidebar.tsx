@@ -2,7 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard, GraduationCap, Truck, Receipt,
   BarChart3, UploadCloud, History, Users, Settings,
-  ShieldCheck, X, ChevronRight
+  ShieldCheck, X, ChevronRight, FolderOpen
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSchool } from '../../context/SchoolContext';
@@ -22,7 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { currentUser, isGM, isAccountant, isHOD, isVendor } = useAuth();
+  const { currentUser, isAccountant } = useAuth();
   const { studentFees, vendorInvoices } = useSchool();
   const { isDarkMode } = useTheme();
 
@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'dashboard',
       label: 'Dashboard',
       icon: LayoutDashboard,
-      roles: ['GM', 'ACCOUNTANT', 'HOD', 'VENDOR'],
+      roles: ['GM', 'ACCOUNTANT', 'HOD'],
     },
     {
       id: 'students',
@@ -46,17 +46,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'vendors',
-      label: isVendor ? 'My Invoices' : 'Vendor Payables (Cat 2)',
+      label: 'Vendor Payables (Cat 2)',
       icon: Truck,
-      roles: ['GM', 'ACCOUNTANT', 'HOD', 'VENDOR'],
-      badge: isVendor ? undefined : overdueVendorCount > 0 ? `${overdueVendorCount} Overdue` : undefined,
+      roles: ['GM', 'ACCOUNTANT', 'HOD'],
+      badge: overdueVendorCount > 0 ? `${overdueVendorCount} Overdue` : undefined,
       badgeColor: 'bg-amber-100 text-amber-800',
     },
     {
       id: 'payments',
       label: 'Payment History',
       icon: Receipt,
-      roles: ['GM', 'HOD', 'VENDOR'],
+      roles: ['GM', 'HOD'],
     },
     {
       id: 'reports',
@@ -70,6 +70,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: UploadCloud,
       roles: ['ACCOUNTANT', 'GM'],
       tag: isAccountant ? 'Active' : 'Preview',
+    },
+    {
+      id: 'excel-folders',
+      label: 'Excel Folders',
+      icon: FolderOpen,
+      roles: ['ACCOUNTANT'],
     },
     {
       id: 'audit',
@@ -164,9 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'GM / Super Admin'
                 : currentUser.role === 'ACCOUNTANT'
                 ? 'Senior Accountant'
-                : currentUser.role === 'HOD'
-                ? 'Department Head'
-                : 'External Supplier'}
+                : 'Department Head'}
             </span>
           </div>
         </div>

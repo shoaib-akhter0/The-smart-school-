@@ -3,6 +3,7 @@ import base64
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q, Sum
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
@@ -12,7 +13,7 @@ from rest_framework.views import APIView
 from . import services
 from .exceptions import ApiError
 from .models import (
-    MONTH_NAMES, AuditLog, Notification, Payment, SchoolSettings, Student,
+    MONTH_NAMES, AuditLog, ExcelWorkbook, Notification, Payment, SchoolSettings, Student,
     StudentFeeRecord, UserProfile, UserRole, Vendor, VendorInvoice,
 )
 from .permissions import require_original_editor, require_role, role_of
@@ -20,7 +21,8 @@ from .serializers import (
     RECORD_ID_PREFIX, money, serialize_audit_log, serialize_notification, serialize_payment, serialize_settings,
     serialize_student, serialize_user, serialize_vendor,
 )
-from .services import STUDENT, VENDOR, clean_str, log_audit
+from .services import STUDENT, VENDOR, actor_name, clean_str, log_audit
+from .spreadsheets import parse_upload
 
 User = get_user_model()
 
@@ -28,13 +30,9 @@ MIN_PASSWORD_LENGTH = 6
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
 
-def linked_vendor(user):
-    return user.profile.vendor
-
-
 def find_user(user_id):
     try:
-        return User.objects.select_related('profile', 'profile__vendor').get(pk=int(user_id), profile__isnull=False)
+        return User.objects.select_related('profile').get(pk=int(user_id), profile__isnull=False)
     except (ValueError, TypeError, User.DoesNotExist):
         raise ApiError('User not found.', status.HTTP_404_NOT_FOUND)
 
@@ -62,7 +60,7 @@ class LoginView(APIView):
             raise ApiError('Please enter both your email/username and password.')
 
         user = (
-            User.objects.select_related('profile', 'profile__vendor')
+            User.objects.select_related('profile')
             .filter(profile__isnull=False)
             .filter(Q(email__iexact=identifier) | Q(username__iexact=identifier)
                     | Q(profile__full_name__iexact=identifier))
@@ -94,7 +92,7 @@ class CurrentUserView(APIView):
 class UserListView(APIView):
     def get(self, request):
         require_role(request.user, [UserRole.GM], 'Only GM / Super Admin can view user accounts.')
-        users = User.objects.select_related('profile', 'profile__vendor').filter(profile__isnull=False).order_by('pk')
+        users = User.objects.select_related('profile').filter(profile__isnull=False).order_by('pk')
         return Response([serialize_user(u) for u in users])
 
 
@@ -207,22 +205,12 @@ class UserManageView(APIView):
         password = validate_new_password(data.get('password') or 'school@123')
 
         with transaction.atomic():
-            vendor = None
-            if role == UserRole.VENDOR:
-                vendor_code = clean_str(data.get('vendorId'))
-                if vendor_code:
-                    vendor = services.upsert_vendor(vendor_code, name)
-                else:
-                    vendor = Vendor.objects.create(vendor_id=services.next_vendor_code(), company_name=name,
-                                                   email=email, phone=clean_str(data.get('phone')))
-
             user = User.objects.create_user(username=email, email=email, password=password)
             UserProfile.objects.create(
                 user=user, full_name=name, role=role,
                 department=clean_str(data.get('department')) or 'School Staff',
                 phone=clean_str(data.get('phone')),
                 needs_password_change=True,
-                vendor=vendor,
             )
             log_audit(actor, 'USER_UPDATED', 'User', user.pk, email, category='USER_GOVERNANCE',
                       details='User account created', new={'role': role, 'email': email},
@@ -283,9 +271,6 @@ class DashboardSummaryView(APIView):
         month = '' if month == 'all' else month
         year = year if year.isdigit() else ''
 
-        if role_of(request.user) == UserRole.VENDOR:
-            return Response(self.vendor_summary(request.user))
-
         fees = StudentFeeRecord.objects.all()
         invoices = VendorInvoice.objects.all()
         if month:
@@ -335,20 +320,6 @@ class DashboardSummaryView(APIView):
             'recentAudit': [serialize_audit_log(entry) for entry in recent],
         })
 
-    def vendor_summary(self, user):
-        vendor = linked_vendor(user)
-        invoices = VendorInvoice.objects.filter(vendor=vendor) if vendor else VendorInvoice.objects.none()
-        billed, paid, balance = _totals(invoices)
-        return {
-            'role': UserRole.VENDOR,
-            'vendorName': vendor.company_name if vendor else user.profile.full_name,
-            'totalBilled': billed,
-            'totalPaid': paid,
-            'totalBalance': balance,
-            'unpaidCount': invoices.exclude(payment_status='Paid').count(),
-            'invoices': [VENDOR.serialize(inv) for inv in invoices.select_related('vendor')],
-        }
-
 
 # =============================================================================
 # Financial records (student fees & vendor invoices share these views)
@@ -360,20 +331,12 @@ class FinancialRecordListView(APIView):
 
     def scoped_queryset(self, user):
         kind = self.kind
-        role = role_of(user)
-        qs = kind.model.objects.select_related('student' if kind.key == 'student' else 'vendor')
-        if role == UserRole.VENDOR:
-            if kind.key == 'student':
-                raise ApiError('Vendors do not have access to student financial records', status.HTTP_403_FORBIDDEN)
-            vendor = linked_vendor(user)
-            return qs.filter(vendor=vendor) if vendor else qs.none()
-        return qs
+        return kind.model.objects.select_related('student' if kind.key == 'student' else 'vendor')
 
     def get(self, request):
         self.kind.model.refresh_overdue_statuses()
         qs = self.scoped_queryset(request.user)
-        vendor_safe = role_of(request.user) == UserRole.VENDOR
-        qs = services.filter_financial_records(self.kind, qs, request.query_params, vendor_safe=vendor_safe)
+        qs = services.filter_financial_records(self.kind, qs, request.query_params)
         qs = services.apply_ordering(qs, request.query_params.get('ordering'),
                                      services.financial_ordering(self.kind), '-created_at')
         return Response(services.paginate(qs, request.query_params, self.kind.serialize))
@@ -435,9 +398,6 @@ class FinancialRecordPaymentView(APIView):
 
     def get(self, request, pk):
         record = services.get_record(self.kind, pk)
-        if role_of(request.user) == UserRole.VENDOR and (
-                self.kind.key == 'student' or record.vendor != linked_vendor(request.user)):
-            raise ApiError('Record not found.', status.HTTP_404_NOT_FOUND)
         return Response([serialize_payment(p) for p in record.payments.all()])
 
     def post(self, request, pk):
@@ -449,18 +409,12 @@ class FinancialRecordPaymentView(APIView):
 
 class StudentListView(APIView):
     def get(self, request):
-        if role_of(request.user) == UserRole.VENDOR:
-            raise ApiError('Vendors do not have access to student records', status.HTTP_403_FORBIDDEN)
         return Response([serialize_student(s) for s in Student.objects.all()])
 
 
 class VendorListView(APIView):
     def get(self, request):
-        vendors = Vendor.objects.all()
-        if role_of(request.user) == UserRole.VENDOR:
-            vendor = linked_vendor(request.user)
-            vendors = vendors.filter(pk=vendor.pk) if vendor else vendors.none()
-        return Response([serialize_vendor(v) for v in vendors])
+        return Response([serialize_vendor(v) for v in Vendor.objects.all()])
 
 
 # =============================================================================
@@ -474,9 +428,6 @@ class PaymentListView(APIView):
     def get(self, request):
         params = request.query_params
         qs = Payment.objects.select_related('student_fee', 'vendor_invoice')
-        if role_of(request.user) == UserRole.VENDOR:
-            vendor = linked_vendor(request.user)
-            qs = qs.filter(record_type='vendor', vendor_invoice__vendor=vendor) if vendor else qs.none()
 
         def value(name):
             raw = clean_str(params.get(name))
@@ -684,6 +635,106 @@ class ImportCommitView(APIView):
 
         imported, errors = services.import_rows(kind, request.user, rows)
         return Response({'success': True, 'importedCount': imported, 'rejectedCount': len(errors), 'errors': errors})
+
+
+# =============================================================================
+# Excel Folders (uploaded spreadsheets the Accountant can browse)
+# =============================================================================
+
+EXCEL_FOLDERS_ONLY = 'Only the Accountant can manage Excel folders.'
+
+
+def serialize_workbook(workbook, include_data=False):
+    data = {
+        'id': str(workbook.pk),
+        'name': workbook.name,
+        'fileName': workbook.original_filename,
+        'fileSize': workbook.file_size,
+        'sheetCount': workbook.sheet_count,
+        'rowCount': workbook.row_count,
+        'sheetNames': workbook.sheet_names,
+        'uploadedBy': workbook.uploaded_by_name,
+        'uploadedAt': workbook.uploaded_at.isoformat(),
+    }
+    if include_data:
+        data['sheets'] = workbook.sheets
+    return data
+
+
+def find_workbook(pk):
+    workbook = ExcelWorkbook.objects.filter(pk=pk).first() if str(pk).isdigit() else None
+    if workbook is None:
+        raise ApiError('Folder not found.', status.HTTP_404_NOT_FOUND)
+    return workbook
+
+
+class ExcelFolderListView(APIView):
+    def get(self, request):
+        require_role(request.user, [UserRole.ACCOUNTANT], EXCEL_FOLDERS_ONLY)
+        # The file and its parsed rows can be large; only the detail view needs them.
+        workbooks = ExcelWorkbook.objects.defer('file_data', 'sheets')
+        return Response([serialize_workbook(w) for w in workbooks])
+
+    def post(self, request):
+        require_role(request.user, [UserRole.ACCOUNTANT], EXCEL_FOLDERS_ONLY)
+        uploaded = request.FILES.get('file')
+        if uploaded is None:
+            raise ApiError('Choose a file to upload.')
+
+        content, sheets = parse_upload(uploaded)
+        default_name = uploaded.name.rsplit('.', 1)[0]
+        name = (clean_str(request.data.get('name')) or default_name)[:200]
+
+        with transaction.atomic():
+            workbook = ExcelWorkbook.objects.create(
+                name=name,
+                original_filename=uploaded.name[:255],
+                content_type=(uploaded.content_type or '')[:100],
+                file_data=content,
+                file_size=len(content),
+                sheets=sheets,
+                sheet_names=[sheet['name'] for sheet in sheets],
+                sheet_count=len(sheets),
+                row_count=sum(len(sheet['rows']) for sheet in sheets),
+                uploaded_by=request.user,
+                uploaded_by_name=actor_name(request.user),
+            )
+            log_audit(
+                request.user, 'FILE_UPLOADED', 'ExcelWorkbook', workbook.pk, workbook.original_filename,
+                category='EXCEL_FOLDERS',
+                details=f'Uploaded "{workbook.name}" ({workbook.sheet_count} sheets, {workbook.row_count} rows).',
+            )
+        return Response(serialize_workbook(workbook, include_data=True), status=status.HTTP_201_CREATED)
+
+
+class ExcelFolderDetailView(APIView):
+    def get(self, request, pk):
+        require_role(request.user, [UserRole.ACCOUNTANT], EXCEL_FOLDERS_ONLY)
+        return Response(serialize_workbook(find_workbook(pk), include_data=True))
+
+    def delete(self, request, pk):
+        require_role(request.user, [UserRole.ACCOUNTANT], EXCEL_FOLDERS_ONLY)
+        workbook = find_workbook(pk)
+        with transaction.atomic():
+            log_audit(
+                request.user, 'FILE_DELETED', 'ExcelWorkbook', workbook.pk, workbook.original_filename,
+                category='EXCEL_FOLDERS', details=f'Deleted folder "{workbook.name}".',
+            )
+            workbook.delete()
+        return Response({'success': True})
+
+
+class ExcelFolderDownloadView(APIView):
+    def get(self, request, pk):
+        require_role(request.user, [UserRole.ACCOUNTANT], EXCEL_FOLDERS_ONLY)
+        workbook = find_workbook(pk)
+        response = HttpResponse(
+            bytes(workbook.file_data),
+            content_type=workbook.content_type or 'application/octet-stream',
+        )
+        safe_name = workbook.original_filename.replace('"', '')
+        response['Content-Disposition'] = f'attachment; filename="{safe_name}"'
+        return response
 
 
 class HealthView(APIView):

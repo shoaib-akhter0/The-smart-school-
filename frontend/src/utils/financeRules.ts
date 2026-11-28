@@ -3,7 +3,7 @@
  * Decoupled from React UI for deterministic testing and rock-solid precision.
  */
 
-export type UserRole = 'GM' | 'ACCOUNTANT' | 'HOD' | 'VENDOR';
+export type UserRole = 'GM' | 'ACCOUNTANT' | 'HOD';
 
 export type PaymentStatus = 'Paid' | 'Partially Paid' | 'Unpaid' | 'Overdue';
 
@@ -89,17 +89,12 @@ export function formatCurrency(amount: number, currencyCode: string = 'PKR'): st
  * - GM can view, monitor, flag, and manage the system, but CANNOT edit or delete original records uploaded by Accountant.
  * - Accountant can enter, edit, and update records they maintain.
  * - HOD can submit authorized revisions with audit logging.
- * - Vendor can only view their own records (no edit).
  */
 export function canUserModifyRecord(
   actorRole: UserRole,
   recordCreatorRole: UserRole | undefined,
   action: 'edit' | 'delete' | 'flag' | 'add_payment' | 'add_revision'
 ): { allowed: boolean; reason?: string } {
-  if (actorRole === 'VENDOR') {
-    return { allowed: false, reason: 'Vendors have read-only access to their own invoices.' };
-  }
-
   if (action === 'flag') {
     if (actorRole === 'GM' || actorRole === 'HOD') {
       return { allowed: true };

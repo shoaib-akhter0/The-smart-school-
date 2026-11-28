@@ -8,7 +8,7 @@ from .models import (
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'user', 'role', 'department', 'vendor', 'needs_password_change')
+    list_display = ('full_name', 'user', 'role', 'department', 'needs_password_change')
     list_filter = ('role',)
     search_fields = ('full_name', 'user__email')
 

@@ -65,10 +65,6 @@ test('canUserModifyRecord strictly enforces GM restriction on original accountan
   assert.equal(hodEditCheck.allowed, false);
   const hodRevisionCheck = canUserModifyRecord('HOD', 'ACCOUNTANT', 'add_revision');
   assert.equal(hodRevisionCheck.allowed, true);
-
-  // Vendor cannot edit
-  const vendorEditCheck = canUserModifyRecord('VENDOR', 'ACCOUNTANT', 'edit');
-  assert.equal(vendorEditCheck.allowed, false);
 });
 
 test('validateStudentImportRow detects invalid amounts, dates, and duplicates', () => {

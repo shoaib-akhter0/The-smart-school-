@@ -5,21 +5,31 @@ import {
 } from 'lucide-react';
 import { useSchool } from '../../context/SchoolContext';
 import { formatCurrency, formatDisplayDate } from '../../utils/financeRules';
-import { SmartSchoolLogo } from '../common/SmartSchoolLogo';
+import { ClassWiseReport, summarizeByClass } from './ClassWiseReport';
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 export const ReportsModule: React.FC = () => {
   const { studentFees, vendorInvoices, payments, settings } = useSchool();
 
   const [reportType, setReportType] = useState<
-    | 'monthly_student_fees'
+    | 'class_wise_fees'
     | 'outstanding_dues'
     | 'vendor_payables'
     | 'payment_history'
     | 'overdue_audit'
-  >('monthly_student_fees');
+  >('class_wise_fees');
 
-  const [selectedMonth, setSelectedMonth] = useState('October');
-  const [selectedYear, setSelectedYear] = useState('2026');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('all');
+
+  // Years that actually appear in the data, newest first.
+  const yearOptions = Array.from(
+    new Set([...studentFees.map((f) => f.year), ...vendorInvoices.map((i) => i.year)])
+  ).sort((a, b) => b - a);
 
   const filteredStudentFees = studentFees.filter((f) => {
     if (selectedMonth !== 'all' && f.month.toLowerCase() !== selectedMonth.toLowerCase()) return false;
@@ -45,11 +55,12 @@ export const ReportsModule: React.FC = () => {
     let rows: any[][] = [];
     let filename = `Report_${reportType}_${selectedMonth}_${selectedYear}.csv`;
 
-    if (reportType === 'monthly_student_fees') {
-      headers = ['Student ID', 'Student Name', 'Class', 'Category', 'Invoice #', 'Total Amount', 'Paid Amount', 'Balance', 'Status', 'Due Date'];
-      rows = filteredStudentFees.map((f) => [
-        f.studentId, `"${f.studentName}"`, `"${f.gradeClass}"`, `"${f.category}"`, f.invoiceNumber, f.totalAmount, f.paidAmount, f.balance, f.paymentStatus, f.dueDate
-      ]);
+    if (reportType === 'class_wise_fees') {
+      headers = ['Class', 'Students', 'Fee Records', 'Billed', 'Collected', 'Dues', 'Collection %'];
+      rows = summarizeByClass(filteredStudentFees)
+        .filter((c) => c.records > 0)
+        .map((c) => [`"${c.className}"`, c.students, c.records, c.billed, c.collected, c.dues, c.rate]);
+      filename = `Class_Wise_Fee_Report_${selectedMonth}_${selectedYear}.csv`;
     } else if (reportType === 'outstanding_dues') {
       headers = ['Student ID', 'Student Name', 'Class', 'Invoice #', 'Total Fee', 'Remaining Dues', 'Status', 'Due Date'];
       rows = studentFees.filter(f => f.balance > 0).map((f) => [
@@ -130,7 +141,7 @@ export const ReportsModule: React.FC = () => {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
           {[
-            { id: 'monthly_student_fees', label: 'Monthly Student Fee Report', icon: GraduationCap },
+            { id: 'class_wise_fees', label: 'Class-wise Fee Report', icon: GraduationCap },
             { id: 'outstanding_dues', label: 'Outstanding Student Dues', icon: Clock },
             { id: 'vendor_payables', label: 'Vendor Payables Statement', icon: Truck },
             { id: 'payment_history', label: 'Complete Payments Ledger', icon: Receipt },
@@ -156,7 +167,7 @@ export const ReportsModule: React.FC = () => {
         </div>
 
         {/* Month & Year Selectors for applicable reports */}
-        {(reportType === 'monthly_student_fees' || reportType === 'vendor_payables') && (
+        {(reportType === 'class_wise_fees' || reportType === 'vendor_payables') && (
           <div className="flex items-center gap-3 pt-2 border-t border-slate-100 text-xs">
             <span className="font-semibold text-slate-600">Select Billing Period:</span>
             <select
@@ -164,7 +175,8 @@ export const ReportsModule: React.FC = () => {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-800 font-medium focus:outline-none"
             >
-              {['August', 'September', 'October', 'November', 'December'].map((m) => (
+              <option value="all">All Months</option>
+              {MONTHS.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
@@ -173,88 +185,20 @@ export const ReportsModule: React.FC = () => {
               onChange={(e) => setSelectedYear(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-slate-800 font-medium focus:outline-none"
             >
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
+              <option value="all">All Years</option>
+              {yearOptions.map((y) => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
             </select>
           </div>
         )}
       </div>
 
-      {/* Generated Report Presentation (Clean, Printable Document Style) */}
+      {/* Report content */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs print:border-none print:shadow-none space-y-6">
-        {/* Document Header */}
-        <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <SmartSchoolLogo height={48} variant="full" />
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                {settings.schoolName}
-              </h1>
-              <p className="text-xs text-slate-500">
-                Financial Administration Office • Session {settings.academicSession}
-              </p>
-            </div>
-          </div>
-
-          <div className="sm:text-right text-xs">
-            <p className="font-bold text-[#D81A28] uppercase">
-              {reportType.replace(/_/g, ' ')}
-            </p>
-            <p className="text-slate-500">
-              Generated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </p>
-            <p className="text-slate-500">
-              Reporting Period: <strong>{selectedMonth} {selectedYear}</strong>
-            </p>
-          </div>
-        </div>
-
         {/* Report Content Table */}
-        {reportType === 'monthly_student_fees' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border border-slate-200">
-              <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-[11px]">
-                <tr>
-                  <th className="py-2.5 px-3">Student Name</th>
-                  <th className="py-2.5 px-3">Reg ID</th>
-                  <th className="py-2.5 px-3">Class</th>
-                  <th className="py-2.5 px-3">Category</th>
-                  <th className="py-2.5 px-3">Invoice #</th>
-                  <th className="py-2.5 px-3 text-right">Billed</th>
-                  <th className="py-2.5 px-3 text-right">Collected</th>
-                  <th className="py-2.5 px-3 text-right">Dues Balance</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredStudentFees.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
-                      No student fee records found for the selected billing period.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredStudentFees.map((f) => (
-                    <tr key={f.id} className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 font-bold text-slate-900">{f.studentName}</td>
-                      <td className="py-2.5 px-3 font-mono text-slate-600">{f.studentId}</td>
-                      <td className="py-2.5 px-3">{f.gradeClass}</td>
-                      <td className="py-2.5 px-3 text-slate-600">{f.category}</td>
-                      <td className="py-2.5 px-3 font-mono">{f.invoiceNumber}</td>
-                      <td className="py-2.5 px-3 text-right font-semibold text-slate-900">{formatCurrency(f.totalAmount, settings.currencyCode)}</td>
-                      <td className="py-2.5 px-3 text-right font-semibold text-emerald-700">{formatCurrency(f.paidAmount, settings.currencyCode)}</td>
-                      <td className="py-2.5 px-3 text-right font-bold text-amber-700">{formatCurrency(f.balance, settings.currencyCode)}</td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-800">
-                          {f.paymentStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        {reportType === 'class_wise_fees' && (
+          <ClassWiseReport records={filteredStudentFees} currency={settings.currencyCode} />
         )}
 
         {reportType === 'outstanding_dues' && (

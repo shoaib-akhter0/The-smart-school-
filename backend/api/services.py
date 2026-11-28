@@ -648,7 +648,7 @@ def apply_ordering(queryset, ordering, mapping, default):
     return queryset.order_by(f'-{field}' if descending else field, '-id' if descending else 'id')
 
 
-def filter_financial_records(kind, queryset, params, *, vendor_safe=False):
+def filter_financial_records(kind, queryset, params):
     def value(name):
         raw = clean_str(params.get(name))
         return '' if raw == 'all' else raw
@@ -673,13 +673,9 @@ def filter_financial_records(kind, queryset, params, *, vendor_safe=False):
         if value('gradeClass'):
             queryset = queryset.filter(grade_class=value('gradeClass'))
     elif search:
-        q = Q(invoice_number__icontains=search) | Q(description__icontains=search)
-        if not vendor_safe:
-            q |= Q(vendor_name__icontains=search)
-        queryset = queryset.filter(q)
-
-    if vendor_safe:
-        return queryset
+        queryset = queryset.filter(
+            Q(invoice_number__icontains=search) | Q(description__icontains=search) | Q(vendor_name__icontains=search)
+        )
 
     if kind.key == 'vendor' and value('vendorId'):
         queryset = queryset.filter(vendor__vendor_id=value('vendorId'))

@@ -26,7 +26,7 @@ export const VendorRecordsModule: React.FC<VendorRecordsModuleProps> = ({
   onOpenRevisionModal,
   onOpenFlagModal,
 }) => {
-  const { currentUser, isGM, isAccountant, isHOD, isVendor } = useAuth();
+  const { currentUser, isGM, isAccountant, isHOD } = useAuth();
   const { vendorInvoices, settings } = useSchool();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +42,6 @@ export const VendorRecordsModule: React.FC<VendorRecordsModuleProps> = ({
     return vendorInvoices
       .filter((inv) => {
         // If vendor user, only their own records are returned (enforced by backend, extra check)
-        if (isVendor && inv.vendorId !== currentUser.vendorId) return false;
         if (selectedMonth !== 'all' && inv.month.toLowerCase() !== selectedMonth.toLowerCase()) return false;
         if (selectedYear !== 'all' && inv.year !== Number(selectedYear)) return false;
         if (selectedStatus !== 'all' && inv.paymentStatus !== selectedStatus) return false;
@@ -58,7 +57,7 @@ export const VendorRecordsModule: React.FC<VendorRecordsModuleProps> = ({
         return true;
       })
       .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
-  }, [vendorInvoices, isVendor, currentUser.vendorId, searchQuery, selectedMonth, selectedYear, selectedStatus, selectedCategory]);
+  }, [vendorInvoices, searchQuery, selectedMonth, selectedYear, selectedStatus, selectedCategory]);
 
   const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);

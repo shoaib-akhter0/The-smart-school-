@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from api.models import SchoolSettings, UserProfile, UserRole, Vendor
+from api.models import SchoolSettings, UserProfile, UserRole
 
 # Mirrors frontend/src/data/initialData.ts::INITIAL_USERS so the login screen's accounts work.
 SEED_USERS = [
@@ -19,16 +19,11 @@ SEED_USERS = [
         'name': 'Prof. Asim Raza', 'email': 'hod@thesmartschool.edu.pk', 'password': 'hod@123',
         'role': UserRole.HOD, 'department': 'Academics & Departmental Oversight', 'phone': '+92 333 9988776',
     },
-    {
-        'name': 'Apex Stationery & Tech Supplies', 'email': 'vendor@thesmartschool.edu.pk', 'password': 'vendor@123',
-        'role': UserRole.VENDOR, 'department': 'External Supplier Portal', 'phone': '+92 301 5551234',
-        'vendor_id': 'VND-101',
-    },
 ]
 
 
 class Command(BaseCommand):
-    help = 'Create the default school settings and the four role accounts used by the frontend.'
+    help = 'Create the default school settings and the three role accounts used by the frontend.'
 
     def add_arguments(self, parser):
         parser.add_argument('--reset-passwords', action='store_true',
@@ -40,15 +35,6 @@ class Command(BaseCommand):
         SchoolSettings.load()
 
         for spec in SEED_USERS:
-            vendor = None
-            if spec.get('vendor_id'):
-                vendor, _ = Vendor.objects.get_or_create(
-                    vendor_id=spec['vendor_id'],
-                    defaults={'company_name': spec['name'], 'email': spec['email'], 'phone': spec['phone'],
-                              'category': 'Stationery & Books Printing',
-                              'goods_services': 'Stationery, exam papers and IT supplies'},
-                )
-
             user = User.objects.filter(email__iexact=spec['email']).first()
             if user is None:
                 user = User.objects.create_user(username=spec['email'], email=spec['email'], password=spec['password'])
@@ -65,7 +51,7 @@ class Command(BaseCommand):
                 user=user,
                 defaults={
                     'full_name': spec['name'], 'role': spec['role'], 'department': spec['department'],
-                    'phone': spec['phone'], 'vendor': vendor, 'is_primary_admin': spec.get('primary', False),
+                    'phone': spec['phone'], 'is_primary_admin': spec.get('primary', False),
                 },
             )
             self.stdout.write(f"  {spec['role']:<11} {spec['email']:<36} {status}")

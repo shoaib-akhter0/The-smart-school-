@@ -67,7 +67,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  const roleColors: Record<UserRole, { badge: string; border: string; bg: string }> = {
+  const roleColors: Record<UserRole | '', { badge: string; border: string; bg: string }> = {
     GM: {
       badge: 'bg-red-50 text-red-700 border-red-200',
       border: 'border-red-200',
@@ -83,11 +83,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       border: 'border-blue-200',
       bg: 'bg-blue-50',
     },
-    VENDOR: {
-      badge: 'bg-amber-50 text-amber-800 border-amber-200',
-      border: 'border-amber-200',
-      bg: 'bg-amber-50',
-    },
+    '': { badge: 'bg-slate-50 text-slate-600 border-slate-200', border: 'border-slate-200', bg: 'bg-slate-50' },
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -415,14 +411,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       System Role &amp; Access Clearance
                     </span>
                     <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${roleColors[currentUser.role].badge}`}>
-                      {currentUser.role === 'GM' ? 'Super Admin / GM' : currentUser.role === 'ACCOUNTANT' ? 'Senior Accountant' : currentUser.role === 'HOD' ? 'Head of Department' : 'External Vendor'}
+                      {currentUser.role === 'GM' ? 'Super Admin / GM' : currentUser.role === 'ACCOUNTANT' ? 'Senior Accountant' : 'Head of Department'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-1">
                     {currentUser.role === 'GM' && 'Highest administrative clearance. Oversees user accounts and system configuration with anti-tampering financial rules.'}
                     {currentUser.role === 'ACCOUNTANT' && 'Primary financial ledger authority. Manages student fee invoices, vendor payables, and payment receipts.'}
                     {currentUser.role === 'HOD' && 'Departmental academic oversight. Inspects ledgers, verifies balances, and submits authorized revisions.'}
-                    {currentUser.role === 'VENDOR' && 'Supplier portal. View approved invoices, payment records, and remaining receivables.'}
                   </p>
                 </div>
 

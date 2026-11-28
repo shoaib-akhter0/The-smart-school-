@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { User, UserRole, StudentFeeRecord, VendorInvoice, Payment, AuditLog, SchoolSettings, NotificationItem } from '../types';
+import { User, UserRole, StudentFeeRecord, VendorInvoice, Payment, AuditLog, SchoolSettings, NotificationItem, ExcelFolder } from '../types';
 
 // Create configured Axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -217,6 +217,36 @@ export const api = {
     },
   },
 
+  // Excel Folders (Accountant only)
+  excelFolders: {
+    list: async () => {
+      const res = await apiClient.get<ExcelFolder[]>('/excel-folders');
+      return res.data;
+    },
+    get: async (id: string) => {
+      const res = await apiClient.get<ExcelFolder>(`/excel-folders/${id}`);
+      return res.data;
+    },
+    upload: async (file: File, name?: string) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (name) formData.append('name', name);
+      const res = await apiClient.post<ExcelFolder>('/excel-folders', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+      });
+      return res.data;
+    },
+    remove: async (id: string) => {
+      const res = await apiClient.delete<{ success: boolean }>(`/excel-folders/${id}`);
+      return res.data;
+    },
+    download: async (id: string) => {
+      const res = await apiClient.get<Blob>(`/excel-folders/${id}/download`, { responseType: 'blob' });
+      return res.data;
+    },
+  },
+
   // Notifications
   notifications: {
     list: async () => {
@@ -229,5 +259,10 @@ export const api = {
     },
   },
 };
+
+/** Pull the backend's `{"error": "..."}` message out of an axios error. */
+export function apiErrorMessage(err: any, fallback = 'Something went wrong. Please try again.'): string {
+  return err?.response?.data?.error || err?.message || fallback;
+}
 
 export default apiClient;

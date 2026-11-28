@@ -26,7 +26,6 @@ interface AuthContextType {
   isGM: boolean;
   isAccountant: boolean;
   isHOD: boolean;
-  isVendor: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -179,7 +178,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isGM = currentUser.role === 'GM';
   const isAccountant = currentUser.role === 'ACCOUNTANT';
   const isHOD = currentUser.role === 'HOD';
-  const isVendor = currentUser.role === 'VENDOR';
 
   // Critical permission rule: GM CANNOT edit original records! Only Accountant can edit originals.
   const canEditOriginals = isAccountant;
@@ -213,7 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isGM,
         isAccountant,
         isHOD,
-        isVendor,
       }}
     >
       {children}

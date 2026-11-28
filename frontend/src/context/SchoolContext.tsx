@@ -196,13 +196,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
     try {
       const headers = getAuthHeaders(currentUser.role);
-      const isVendorRole = currentUser.role === 'VENDOR';
 
       const [feesRes, invoicesRes, paymentsRes, auditRes, settingsRes, notifRes, metricsRes] = await Promise.all([
-        !isVendorRole ? fetch('/api/students/fees?page_size=100', { headers }) : Promise.resolve(null),
+        fetch('/api/students/fees?page_size=100', { headers }),
         fetch('/api/vendors/invoices?page_size=100', { headers }),
         fetch('/api/payments?page_size=100', { headers }),
-        !isVendorRole ? fetch('/api/audit-logs?page_size=100', { headers }) : Promise.resolve(null),
+        fetch('/api/audit-logs?page_size=100', { headers }),
         fetch('/api/settings', { headers }),
         fetch('/api/notifications', { headers }),
         fetch('/api/dashboard/summary', { headers }),

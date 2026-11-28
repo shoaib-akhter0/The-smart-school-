@@ -15,7 +15,6 @@ CREDENTIALS = {
     'GM': ('faisalabbas@gmail.com', 'faisal@123'),
     'ACCOUNTANT': ('accountant@thesmartschool.edu.pk', 'accountant@123'),
     'HOD': ('hod@thesmartschool.edu.pk', 'hod@123'),
-    'VENDOR': ('vendor@thesmartschool.edu.pk', 'vendor@123'),
 }
 
 
@@ -149,10 +148,6 @@ class AuthTests(ApiTestCase):
     def test_switch_role_is_disabled(self):
         self.assertEqual(self.call('HOD', 'post', '/api/auth/switch-role', {'role': 'GM'}).status_code, 403)
 
-    def test_vendor_user_exposes_vendor_id(self):
-        res = self.call('VENDOR', 'get', '/api/auth/current-user')
-        self.assertEqual(res.json()['vendorId'], 'VND-101')
-
 
 class UserManagementTests(ApiTestCase):
     def test_only_gm_can_list_and_manage(self):
@@ -160,7 +155,7 @@ class UserManagementTests(ApiTestCase):
         self.assertEqual(self.call('ACCOUNTANT', 'post', '/api/users/manage', {'action': 'create'}).status_code, 403)
         res = self.call('GM', 'get', '/api/auth/users')
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()), 4)
+        self.assertEqual(len(res.json()), 3)
 
     def test_create_user_requires_password_change(self):
         res = self.call('GM', 'post', '/api/users/manage', {'action': 'create', 'userData': {
@@ -172,10 +167,11 @@ class UserManagementTests(ApiTestCase):
             'name': 'Dup', 'email': 'CLERK@school.pk', 'password': 'school@123', 'role': 'HOD'}})
         self.assertEqual(dup.status_code, 400)
 
-    def test_create_vendor_user_gets_linked_vendor(self):
+    def test_vendor_role_can_no_longer_be_created(self):
         res = self.call('GM', 'post', '/api/users/manage', {'action': 'create', 'userData': {
             'name': 'Fuel Co', 'email': 'fuel@co.pk', 'password': 'school@123', 'role': 'VENDOR'}})
-        self.assertTrue(res.json()['user']['vendorId'].startswith('VND-'))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('Invalid role', res.json()['error'])
 
     def test_toggle_active_blocks_login_and_existing_token(self):
         hod_id = next(u['id'] for u in self.call('GM', 'get', '/api/auth/users').json() if u['role'] == 'HOD')
@@ -204,7 +200,7 @@ class UserManagementTests(ApiTestCase):
         self.assertTrue(res.json()['user']['needsPasswordChange'])
         res = self.call('GM', 'post', '/api/users/manage', {'action': 'delete', 'userId': hod_id})
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(self.call('GM', 'get', '/api/auth/users').json()), 3)
+        self.assertEqual(len(self.call('GM', 'get', '/api/auth/users').json()), 2)
 
 
 class StudentFeeTests(ApiTestCase):
@@ -231,7 +227,7 @@ class StudentFeeTests(ApiTestCase):
         self.assertEqual(res.json()['results'][0]['paymentStatus'], 'Overdue')
 
     def test_only_accountant_can_create(self):
-        for role in ('GM', 'HOD', 'VENDOR'):
+        for role in ('GM', 'HOD'):
             res = self.call(role, 'post', '/api/students/fees', fee_payload())
             self.assertEqual(res.status_code, 403, role)
 
@@ -310,7 +306,6 @@ class StudentFeeTests(ApiTestCase):
         notes = self.call('ACCOUNTANT', 'get', '/api/notifications').json()
         self.assertEqual(len(notes), 1)
         self.assertFalse(notes[0]['isRead'])
-        self.assertEqual(self.call('VENDOR', 'get', '/api/notifications').json(), [])
         self.call('ACCOUNTANT', 'post', f'/api/notifications/{notes[0]["id"]}/read')
         self.assertTrue(self.call('ACCOUNTANT', 'get', '/api/notifications').json()[0]['isRead'])
         self.assertFalse(self.call('HOD', 'get', '/api/notifications').json()[0]['isRead'])
@@ -361,10 +356,6 @@ class StudentFeeTests(ApiTestCase):
         self.call('GM', 'post', f'/api/students/fees/{get("search=F1")["results"][0]["id"]}/flag', {'reason': 'x'})
         self.assertEqual(get('flagged_only=true')['totalCount'], 1)
 
-    def test_vendor_cannot_access_student_data(self):
-        self.assertEqual(self.call('VENDOR', 'get', '/api/students/fees').status_code, 403)
-        self.assertEqual(self.call('VENDOR', 'get', '/api/students/list').status_code, 403)
-
 
 class VendorInvoiceTests(ApiTestCase):
     def test_create_edit_flag_revise_pay(self):
@@ -401,28 +392,28 @@ class VendorInvoiceTests(ApiTestCase):
         vendors = self.call('GM', 'get', '/api/vendors/list').json()
         self.assertIn('VND-900', [v['vendorId'] for v in vendors])
 
-    def test_vendor_isolation(self):
-        own = self.create_invoice(paidAmount='1000')
-        other = self.create_invoice(vendorId='VND-900', vendorName='Power Co', invoiceNumber='E1', paidAmount='500')
+    def test_old_vendor_accounts_are_disabled_by_migration(self):
+        import importlib
 
-        res = self.call('VENDOR', 'get', '/api/vendors/invoices').json()
-        self.assertEqual([r['id'] for r in res['results']], [own['id']])
-        self.assertEqual(self.call('VENDOR', 'get', f'/api/vendors/invoices/{other["id"]}').status_code, 404)
-        self.assertEqual(self.call('VENDOR', 'get', f'/api/vendors/invoices/{own["id"]}').status_code, 200)
-        self.assertEqual(self.call('VENDOR', 'get', f'/api/vendors/invoices/{other["id"]}/payments').status_code, 404)
+        from django.apps import apps
+        from django.contrib.auth.models import User
+        from rest_framework.authtoken.models import Token
 
-        payments = self.call('VENDOR', 'get', '/api/payments').json()['results']
-        self.assertEqual([p['recordId'] for p in payments], [own['id']])
-        self.assertEqual([v['vendorId'] for v in self.call('VENDOR', 'get', '/api/vendors/list').json()], ['VND-101'])
+        from .models import UserProfile
 
-        summary = self.call('VENDOR', 'get', '/api/dashboard/summary').json()
-        self.assertEqual(summary['role'], 'VENDOR')
-        self.assertEqual(summary['totalBilled'], 45000.0)
-        self.assertEqual(len(summary['invoices']), 1)
+        user = User.objects.create_user('old-vendor@co.pk', 'old-vendor@co.pk', 'vendor@123')
+        UserProfile.objects.create(user=user, full_name='Old Vendor', role='VENDOR')
+        Token.objects.create(user=user)
 
-        self.assertEqual(self.call('VENDOR', 'post', f'/api/vendors/invoices/{own["id"]}/payments',
-                                   {'amount': 1}).status_code, 403)
-        self.assertEqual(self.call('VENDOR', 'get', '/api/audit-logs').status_code, 403)
+        migration = importlib.import_module('api.migrations.0003_disable_vendor_accounts')
+        migration.disable_vendor_accounts(apps, None)
+
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+        self.assertFalse(Token.objects.filter(user=user).exists())
+        res = self.client.post('/api/auth/login', {'email': 'old-vendor@co.pk', 'password': 'vendor@123'},
+                               format='json')
+        self.assertNotEqual(res.status_code, 200)
 
 
 class PaymentsLedgerTests(ApiTestCase):
@@ -555,3 +546,80 @@ class AdminPagesTests(ApiTestCase):
                 res = self.client.get(url)
                 self.assertEqual(res.status_code, 200, f'{url} -> {res.status_code}')
         self.assertEqual(self.client.get(reverse('admin:index')).status_code, 200)
+
+
+class ExcelFolderTests(ApiTestCase):
+    def make_xlsx(self):
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        fees = workbook.active
+        fees.title = 'Fees'
+        fees.append(['Student', 'Amount', 'Due Date', None])
+        fees.append(['Farhan Ali', 24000, datetime.datetime(2026, 10, 30), None])
+        fees.append([None, None, None, None])  # blank rows are dropped
+        fees.append(['Sara Tariq', 1500.5, datetime.datetime(2026, 11, 5), None])
+        staff = workbook.create_sheet('Staff')
+        staff.append(['Name', '', 'Name'])
+        staff.append(['Ali', 'x', 'Khan'])
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+        buffer.name = 'October Fees.xlsx'
+        return buffer
+
+    def upload(self, file_obj, role='ACCOUNTANT', **extra):
+        headers = {'HTTP_AUTHORIZATION': f'Bearer {self.login(role)}'}
+        return self.client.post('/api/excel-folders', {'file': file_obj, **extra}, format='multipart', **headers)
+
+    def test_upload_parses_every_sheet(self):
+        res = self.upload(self.make_xlsx())
+        self.assertEqual(res.status_code, 201, res.content)
+        body = res.json()
+        self.assertEqual(body['name'], 'October Fees')
+        self.assertEqual(body['sheetNames'], ['Fees', 'Staff'])
+        self.assertEqual(body['rowCount'], 3)
+        fees, staff = body['sheets']
+        self.assertEqual(fees['headers'], ['Student', 'Amount', 'Due Date'])
+        self.assertEqual(fees['rows'], [['Farhan Ali', 24000, '2026-10-30'], ['Sara Tariq', 1500.5, '2026-11-05']])
+        self.assertEqual(staff['headers'], ['Name', 'Column 2', 'Name (2)'])
+        self.assertTrue(AuditLog.objects.filter(action='FILE_UPLOADED').exists())
+
+    def test_list_open_download_delete(self):
+        folder_id = self.upload(self.make_xlsx(), name='My Folder').json()['id']
+
+        listing = self.call('ACCOUNTANT', 'get', '/api/excel-folders').json()
+        self.assertEqual([f['name'] for f in listing], ['My Folder'])
+        self.assertNotIn('sheets', listing[0])
+
+        detail = self.call('ACCOUNTANT', 'get', f'/api/excel-folders/{folder_id}').json()
+        self.assertEqual(len(detail['sheets']), 2)
+
+        download = self.call('ACCOUNTANT', 'get', f'/api/excel-folders/{folder_id}/download')
+        self.assertEqual(download.status_code, 200)
+        self.assertIn('October Fees.xlsx', download['Content-Disposition'])
+        self.assertTrue(download.content.startswith(b'PK'))
+
+        self.assertEqual(self.call('ACCOUNTANT', 'delete', f'/api/excel-folders/{folder_id}').status_code, 200)
+        self.assertEqual(self.call('ACCOUNTANT', 'get', f'/api/excel-folders/{folder_id}').status_code, 404)
+
+    def test_csv_upload(self):
+        csv_file = io.BytesIO('Name;Fee\nFarhan;100\n'.encode('utf-8'))
+        csv_file.name = 'fees.csv'
+        body = self.upload(csv_file).json()
+        self.assertEqual(body['sheets'][0]['headers'], ['Name', 'Fee'])
+        self.assertEqual(body['sheets'][0]['rows'], [['Farhan', '100']])
+
+    def test_rejects_bad_files(self):
+        for name, content in [('old.xls', b'x'), ('notes.txt', b'x'), ('broken.xlsx', b'not a zip'),
+                              ('empty.csv', b'')]:
+            bad = io.BytesIO(content)
+            bad.name = name
+            res = self.upload(bad)
+            self.assertEqual(res.status_code, 400, name)
+            self.assertIn('error', res.json())
+
+    def test_only_accountant_has_access(self):
+        for role in ('GM', 'HOD'):
+            self.assertEqual(self.call(role, 'get', '/api/excel-folders').status_code, 403)
+            self.assertEqual(self.upload(self.make_xlsx(), role=role).status_code, 403)

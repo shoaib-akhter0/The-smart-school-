@@ -1,26 +1,14 @@
 import React from 'react';
-import {
-  GraduationCap, Truck, PlusCircle, UploadCloud,
-  Receipt, ArrowUpRight, Clock, AlertCircle, CheckCircle,
-  FileSpreadsheet, ShieldCheck
-} from 'lucide-react';
+import { GraduationCap, Truck, ArrowUpRight } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
 import { useSchool } from '../../context/SchoolContext';
-import { formatCurrency, formatDisplayDate } from '../../utils/financeRules';
+import { formatCurrency } from '../../utils/financeRules';
 
 interface AccountantDashboardProps {
   onNavigateTab: (tab: string) => void;
-  onOpenAddStudent: () => void;
-  onOpenAddVendor: () => void;
-  onOpenRecordPayment: () => void;
 }
 
-export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
-  onNavigateTab,
-  onOpenAddStudent,
-  onOpenAddVendor,
-  onOpenRecordPayment,
-}) => {
+export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({ onNavigateTab }) => {
   const { studentFees, vendorInvoices, settings } = useSchool();
 
   // Category 1 Calculations directly from real data
@@ -46,51 +34,19 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Accountant Workspace Header & Quick Actions */}
-      <div className="flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50/40 p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-md bg-[#D81A28] px-2.5 py-0.5 text-xs font-bold text-white">
-              Senior Accountant Desk
-            </span>
-            <span className="text-xs text-slate-500 font-medium">
-              The Smart School • Primary Financial Data Authority
-            </span>
-          </div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900 mt-1">
-            Financial Ledger &amp; Transactions Entry Station
-          </h2>
-          <p className="text-xs text-slate-600">
-            Submit, reconcile, and disburse student fees and supplier payables with full audit compliance.
-          </p>
-        </div>
-
-        {/* Quick Action Buttons */}
+      {/* Accountant Workspace Header */}
+      <div className="rounded-xl border border-red-200 bg-red-50/40 px-5 py-4 shadow-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={onOpenAddStudent}
-            className="flex items-center gap-1.5 rounded-lg bg-[#D81A28] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#B91220] transition"
-          >
-            <PlusCircle className="h-4 w-4" />
-            <span>+ Student Fee</span>
-          </button>
-
-          <button
-            onClick={onOpenAddVendor}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition"
-          >
-            <Truck className="h-4 w-4" />
-            <span>+ Vendor Bill</span>
-          </button>
-
-          <button
-            onClick={() => onNavigateTab('import')}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-          >
-            <UploadCloud className="h-4 w-4 text-emerald-600" />
-            <span>Bulk CSV Import</span>
-          </button>
+          <span className="rounded-md bg-[#D81A28] px-2.5 py-0.5 text-xs font-bold text-white">
+            Senior Accountant Desk
+          </span>
+          <span className="text-xs text-slate-500 font-medium">
+            The Smart School • Primary Financial Data Authority
+          </span>
         </div>
+        <h2 className="text-xl font-bold tracking-tight text-slate-900 mt-1">
+          Financial Ledger &amp; Transactions Entry Station
+        </h2>
       </div>
 
       {/* TWO PRIMARY MODULE CATEGORIES (PROMINENTLY SEPARATED) */}

@@ -6,7 +6,6 @@ import { formatCurrency, formatDisplayDate } from '../../utils/financeRules';
 
 export const PaymentsModule: React.FC = () => {
   const { payments, settings } = useSchool();
-  const { isVendor, currentUser } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
@@ -117,19 +116,17 @@ export const PaymentsModule: React.FC = () => {
             />
           </div>
 
-          {!isVendor && (
-            <div>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:outline-none"
-              >
-                <option value="all">All Record Types</option>
-                <option value="student">Student Fee Collections</option>
-                <option value="vendor">Vendor Payables Disbursals</option>
-              </select>
-            </div>
-          )}
+          <div>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:outline-none"
+            >
+              <option value="all">All Record Types</option>
+              <option value="student">Student Fee Collections</option>
+              <option value="vendor">Vendor Payables Disbursals</option>
+            </select>
+          </div>
 
           <div>
             <select

@@ -1,4 +1,4 @@
-export type UserRole = 'GM' | 'ACCOUNTANT' | 'HOD' | 'VENDOR';
+export type UserRole = 'GM' | 'ACCOUNTANT' | 'HOD';
 
 export type PaymentStatus = 'Paid' | 'Partially Paid' | 'Unpaid' | 'Overdue';
 
@@ -7,9 +7,8 @@ export interface User {
   name: string;
   email: string;
   password?: string;
-  role: UserRole;
+  role: UserRole | ''; // '' only for the signed-out placeholder user
   department?: string;
-  vendorId?: string;
   phone?: string;
   isActive: boolean;
   avatar?: string;
@@ -239,3 +238,25 @@ export const MONTHS = [
 ];
 
 export const YEARS = ['2027', '2026', '2025', '2024'];
+
+// Excel Folders: an uploaded workbook shown as a folder
+export type ExcelCell = string | number;
+
+export interface ExcelSheet {
+  name: string;
+  headers: string[];
+  rows: ExcelCell[][];
+}
+
+export interface ExcelFolder {
+  id: string;
+  name: string;
+  fileName: string;
+  fileSize: number;
+  sheetCount: number;
+  rowCount: number;
+  sheetNames: string[];
+  uploadedBy: string;
+  uploadedAt: string;
+  sheets?: ExcelSheet[];
+}

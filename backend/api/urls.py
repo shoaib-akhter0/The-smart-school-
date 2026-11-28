@@ -47,4 +47,8 @@ urlpatterns = [
     route('notifications', views.NotificationListView.as_view(), 'notifications'),
     route(r'notifications/(?P<pk>[^/]+)/read', views.NotificationReadView.as_view(), 'notification-read'),
     route('import/commit', views.ImportCommitView.as_view(), 'import-commit'),
+
+    route('excel-folders', views.ExcelFolderListView.as_view(), 'excel-folders'),
+    route(r'excel-folders/(?P<pk>[^/]+)', views.ExcelFolderDetailView.as_view(), 'excel-folder'),
+    route(r'excel-folders/(?P<pk>[^/]+)/download', views.ExcelFolderDownloadView.as_view(), 'excel-folder-download'),
 ]

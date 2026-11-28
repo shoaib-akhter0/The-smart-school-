@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Bell, ChevronDown, Check,
-  Menu, Wallet, LogOut, KeyRound,
+  Menu, LogOut, KeyRound,
   Camera, Sun, Moon
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -30,13 +30,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile,
 }) => {
   const { currentUser, logout } = useAuth();
-  const { settings, notifications } = useSchool();
+  const { notifications } = useSchool();
   const { isDarkMode, toggleTheme } = useTheme();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const unreadNotifs = notifications.filter(n => !n.isRead).length;
 
-  const roleLabels: Record<UserRole, { title: string; badgeClass: string; desc: string }> = {
+  const roleLabels: Record<UserRole | '', { title: string; badgeClass: string; desc: string }> = {
     GM: {
       title: 'GM / Super Admin',
       badgeClass: 'bg-red-50 text-red-700 border-red-200',
@@ -52,11 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
       desc: 'Departmental Oversight, Ledgers Inspection & Authorized Revisions',
     },
-    VENDOR: {
-      title: 'Vendor Portal',
-      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
-      desc: 'Isolated Portal for Authorized Supplier Invoices & Balances',
-    },
+    '': { title: 'Signing in…', badgeClass: 'bg-slate-50 text-slate-600 border-slate-200', desc: '' },
   };
 
   const currentRoleInfo = roleLabels[currentUser.role];
@@ -103,14 +99,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
 
-        {!currentUser || currentUser.role !== 'ACCOUNTANT' ? (
+        {/* Notifications bell: HOD only (removed from the GM and Accountant panels) */}
+        {currentUser.role === 'HOD' ? (
           <>
-            {/* Currency badge */}
-            <div className="hidden items-center gap-1.5 rounded-full border border-red-200 bg-red-50/50 px-2.5 py-1 text-xs font-semibold text-red-800 xl:flex">
-              <Wallet className="h-3.5 w-3.5 text-[#C62828]" />
-              <span>Currency: {settings.currencyCode}</span>
-            </div>
-
             {/* Notifications Bell */}
             <button
               onClick={onOpenNotifications}

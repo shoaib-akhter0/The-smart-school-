@@ -5,7 +5,7 @@ export const GUEST_USER: User = {
   id: '',
   name: '',
   email: '',
-  role: 'VENDOR',
+  role: '',
   isActive: false,
 };
 

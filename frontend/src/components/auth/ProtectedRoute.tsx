@@ -21,7 +21,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Login />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
+  if (allowedRoles && (!currentUser.role || !allowedRoles.includes(currentUser.role))) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 text-[#D81A28] border border-red-200 mb-4 shadow-xs">
